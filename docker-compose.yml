@@ -1,0 +1,48 @@
+version: "3"
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis
+
+  db:
+    image: postgres
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    container_name: postgres_db
+
+  app:
+    build: .
+    volumes:
+      - .:/market-trend
+    ports:
+      - 8000:8000
+    image: app:market-trend
+    container_name: market-trend-container
+    command: /entrypoint.sh
+    depends_on:
+      - db
+
+  celery:
+    restart: always
+    build: .
+    command: celery -A MarketTrendTracker worker -l DEBUG
+    volumes:
+      - .:/market-trend
+    container_name: celery
+    depends_on:
+      - db
+      - redis
+      - app
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx-setup.conf:/etc/nginx/nginx-setup.conf  # Mount Nginx configuration file from nginx folder
+    ports:
+      - "8080:80"
+    depends_on:
+      - app
